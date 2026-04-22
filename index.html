@@ -2,97 +2,104 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Atualizar Vencimentos</title>
+<title>Atualizar Clientes</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
 body{
   font-family:Arial;
-  padding:20px;
+  padding:15px;
+  background:#f5f5f5;
 }
 
 .bloco{
-  border:1px solid #ccc;
-  padding:10px;
+  background:white;
+  border-radius:10px;
+  padding:12px;
   margin-bottom:15px;
-  border-radius:8px;
+  box-shadow:0 2px 5px rgba(0,0,0,0.1);
 }
 
 textarea{
   width:100%;
-  height:100px;
+  height:90px;
+  border-radius:6px;
+  border:1px solid #ccc;
+  padding:5px;
 }
 
 button{
-  margin-top:5px;
+  margin-top:8px;
   padding:6px 10px;
-  margin-right:5px;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
 }
 
+.enviar{ background:#4CAF50; color:white; }
+.excluir{ background:#f44336; color:white; }
+
 .status{
-  margin-left:10px;
+  display:block;
+  margin-top:5px;
   font-weight:bold;
 }
 </style>
-
 </head>
 
 <body>
 
 <h2>Atualizar Clientes</h2>
-
 <div id="container"></div>
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbz9_bqSoEo-j5lpKcohMhtkQdDxJiehoFZlprPt3DqkOuxHGKaBttmVWyE6Ic3T6Sd-/exec";
 
-// 🔥 carregar dados salvos
+// 🔥 LOCAL STORAGE
 function carregarLocal(){
   return JSON.parse(localStorage.getItem("dadosClientes") || "[]");
 }
 
-// 🔥 salvar dados
 function salvarLocal(dados){
   localStorage.setItem("dadosClientes", JSON.stringify(dados));
 }
 
 let dados = carregarLocal();
 
-// cria 10 blocos
+// 🔥 CRIAR CAMPOS
 for(let i=0;i<10;i++){
   const div = document.createElement("div");
   div.className = "bloco";
 
   div.innerHTML = `
-    <textarea id="txt${i}" placeholder="Cole a mensagem aqui..."></textarea><br>
-    <button onclick="processar(${i})">Enviar</button>
-    <button onclick="excluir(${i})">🗑️ Excluir</button>
+    <textarea id="txt${i}" placeholder="Cole a mensagem..."></textarea>
+    <button class="enviar" onclick="processar(${i})">Enviar</button>
+    <button class="excluir" onclick="excluir(${i})">Excluir</button>
     <span id="status${i}" class="status"></span>
   `;
 
   document.getElementById("container").appendChild(div);
 
-  // 🔥 carregar valor salvo
   if(dados[i]){
     document.getElementById("txt"+i).value = dados[i];
   }
 
-  // 🔥 salvar automaticamente ao digitar
   document.getElementById("txt"+i).addEventListener("input",()=>{
     dados[i] = document.getElementById("txt"+i).value;
     salvarLocal(dados);
   });
 }
 
-function processar(i){
+// 🔥 PROCESSAR ENVIO (VERSÃO REAL)
+async function processar(i){
   const txt = document.getElementById("txt"+i).value;
   const status = document.getElementById("status"+i);
 
-  const userMatch = txt.match(/Usuário:\s*(.+)/i);
+  const userMatch = txt.match(/usu[aá]rio\s*:\s*(.+)/i);
   const dataMatch = txt.match(/(\d{2}\/\d{2}\/\d{4})/);
 
   if(!userMatch || !dataMatch){
-    status.textContent = "❌ Erro ao identificar";
+    status.textContent = "❌ Não identificou";
     status.style.color = "red";
     return;
   }
@@ -103,26 +110,32 @@ function processar(i){
   status.textContent = "⏳ Enviando...";
   status.style.color = "orange";
 
-  // 🔥 versão compatível com Apps Script (sem CORS)
-  fetch(API_URL,{
-    method:"POST",
-    mode:"no-cors",
-    body: new URLSearchParams({
-      usuario: usuario,
-      data: data
-    })
-  })
-  .then(()=>{
-    status.textContent = "✅ Feito";
-    status.style.color = "green";
-  })
-  .catch(()=>{
-    status.textContent = "❌ Erro ao enviar";
+  try{
+    const res = await fetch(API_URL,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body: JSON.stringify({ usuario, data })
+    });
+
+    const texto = await res.text();
+
+    status.textContent = texto;
+
+    if(texto.includes("✅")){
+      status.style.color = "green";
+    }else{
+      status.style.color = "red";
+    }
+
+  }catch(err){
+    status.textContent = "❌ Falha de conexão";
     status.style.color = "red";
-  });
+  }
 }
 
-// 🔥 excluir campo
+// 🔥 EXCLUIR
 function excluir(i){
   document.getElementById("txt"+i).value = "";
   document.getElementById("status"+i).textContent = "";
