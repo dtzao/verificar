@@ -1,21 +1,20 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
-<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Atualizar Clientes</title>
+<title>Painel</title>
 
 <style>
 body{
   font-family:Arial;
-  padding:15px;
-  background:#f2f2f2;
+  padding:10px;
+  background:#eee;
 }
 
-.bloco{
-  background:white;
+.box{
+  background:#fff;
   padding:10px;
-  margin-bottom:12px;
+  margin-bottom:10px;
   border-radius:8px;
 }
 
@@ -29,72 +28,129 @@ button{
   padding:6px;
 }
 
-.status{
-  display:block;
-  margin-top:5px;
-  font-weight:bold;
-}
+.ok{color:green;}
+.erro{color:red;}
 </style>
 </head>
 
 <body>
 
-<h3>Atualizar Clientes</h3>
+<h3>Atualizar</h3>
 
-<div id="container"></div>
+<div id="lista"></div>
 
-<!-- 🔥 iframe invisível (segredo pra não sair da página) -->
+<!-- iframe invisível -->
 <iframe name="oculto" style="display:none;"></iframe>
 
 <script>
-const API_URL = "COLE_SUA_URL_AQUI";
+const API = "COLE_SUA_URL_AQUI";
 
+// 🔥 STORAGE
+let dados = JSON.parse(localStorage.getItem("dados") || "[]");
+
+// 🔥 FILA (garante envio no celular)
+let fila = [];
+let rodando = false;
+
+// 🔥 CRIA 5 CAMPOS
 for(let i=0;i<5;i++){
-  const div = document.createElement("div");
-  div.className = "bloco";
-
-  div.innerHTML = `
-    <textarea id="txt${i}" placeholder="Cole a mensagem"></textarea>
-    <form id="form${i}" method="POST" action="${API_URL}" target="oculto">
-      <input type="hidden" name="usuario" id="user${i}">
-      <input type="hidden" name="data" id="data${i}">
-      <button type="button" onclick="enviar(${i})">Enviar</button>
-    </form>
-    <span id="status${i}" class="status"></span>
-  `;
-
-  document.getElementById("container").appendChild(div);
+  criar(i);
 }
 
+function criar(i){
+  const div = document.createElement("div");
+  div.className="box";
+
+  div.innerHTML = `
+    <textarea id="t${i}"></textarea><br>
+    <button onclick="enviar(${i})">Enviar</button>
+    <button onclick="excluir(${i})">Excluir</button>
+    <div id="s${i}"></div>
+
+    <form id="f${i}" method="POST" action="${API}" target="oculto">
+      <input name="usuario" id="u${i}">
+      <input name="data" id="d${i}">
+    </form>
+  `;
+
+  document.getElementById("lista").appendChild(div);
+
+  if(dados[i]) document.getElementById("t"+i).value = dados[i];
+
+  document.getElementById("t"+i).oninput = ()=>{
+    dados[i] = document.getElementById("t"+i).value;
+    localStorage.setItem("dados", JSON.stringify(dados));
+  }
+}
+
+// 🔥 EXTRAI TEXTO
+function extrair(txt){
+  let u = txt.match(/usu[aá]rio\s*:\s*(.+)/i);
+  let d = txt.match(/(\d{2}\/\d{2}\/\d{4})/);
+
+  if(!u || !d) return null;
+
+  return {
+    usuario: u[1].trim(),
+    data: d[1]
+  };
+}
+
+// 🔥 ENVIA
 function enviar(i){
-  const txt = document.getElementById("txt"+i).value;
-  const status = document.getElementById("status"+i);
+  let txt = document.getElementById("t"+i).value;
+  let s = document.getElementById("s"+i);
 
-  const userMatch = txt.match(/usu[aá]rio\s*:\s*(.+)/i);
-  const dataMatch = txt.match(/(\d{2}\/\d{2}\/\d{4})/);
+  let dados = extrair(txt);
 
-  if(!userMatch || !dataMatch){
-    status.textContent = "Erro ao identificar";
-    status.style.color = "red";
+  if(!dados){
+    s.innerHTML = "<span class='erro'>Erro</span>";
     return;
   }
 
-  const usuario = userMatch[1].trim();
-  const data = dataMatch[1];
+  fila.push({i,...dados});
+  s.innerHTML = "Fila...";
 
-  document.getElementById("user"+i).value = usuario;
-  document.getElementById("data"+i).value = data;
+  rodar();
+}
 
-  status.textContent = "Enviando...";
-  status.style.color = "orange";
+// 🔥 PROCESSA FILA (ESSENCIAL PRA CELULAR)
+function rodar(){
+  if(rodando) return;
 
-  document.getElementById("form"+i).submit();
+  rodando = true;
 
-  // 🔥 feedback simples (funciona sempre)
-  setTimeout(()=>{
-    status.textContent = "Enviado ✔ (verifique planilha)";
-    status.style.color = "green";
-  },1000);
+  function loop(){
+    if(fila.length === 0){
+      rodando=false;
+      return;
+    }
+
+    let item = fila.shift();
+
+    document.getElementById("u"+item.i).value = item.usuario;
+    document.getElementById("d"+item.i).value = item.data;
+
+    document.getElementById("s"+item.i).innerHTML="Enviando...";
+
+    document.getElementById("f"+item.i).submit();
+
+    setTimeout(()=>{
+      document.getElementById("s"+item.i).innerHTML="<span class='ok'>Enviado</span>";
+      loop();
+    },1500); // tempo necessário no celular
+  }
+
+  loop();
+}
+
+// 🔥 EXCLUIR
+function excluir(i){
+  document.getElementById("t"+i).value="";
+  document.getElementById("s"+i).innerHTML="";
+
+  dados[i]="";
+  localStorage.setItem("dados", JSON.stringify(dados));
 }
 </script>
 
