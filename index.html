@@ -26,6 +26,7 @@ textarea{
 button{
   margin-top:5px;
   padding:6px 10px;
+  margin-right:5px;
 }
 
 .status{
@@ -45,7 +46,19 @@ button{
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbz9_bqSoEo-j5lpKcohMhtkQdDxJiehoFZlprPt3DqkOuxHGKaBttmVWyE6Ic3T6Sd-/exec";
 
-// cria 10 blocos automaticamente
+// 🔥 carregar dados salvos
+function carregarLocal(){
+  return JSON.parse(localStorage.getItem("dadosClientes") || "[]");
+}
+
+// 🔥 salvar dados
+function salvarLocal(dados){
+  localStorage.setItem("dadosClientes", JSON.stringify(dados));
+}
+
+let dados = carregarLocal();
+
+// cria 10 blocos
 for(let i=0;i<10;i++){
   const div = document.createElement("div");
   div.className = "bloco";
@@ -53,10 +66,22 @@ for(let i=0;i<10;i++){
   div.innerHTML = `
     <textarea id="txt${i}" placeholder="Cole a mensagem aqui..."></textarea><br>
     <button onclick="processar(${i})">Enviar</button>
+    <button onclick="excluir(${i})">🗑️ Excluir</button>
     <span id="status${i}" class="status"></span>
   `;
 
   document.getElementById("container").appendChild(div);
+
+  // 🔥 carregar valor salvo
+  if(dados[i]){
+    document.getElementById("txt"+i).value = dados[i];
+  }
+
+  // 🔥 salvar automaticamente ao digitar
+  document.getElementById("txt"+i).addEventListener("input",()=>{
+    dados[i] = document.getElementById("txt"+i).value;
+    salvarLocal(dados);
+  });
 }
 
 function processar(i){
@@ -78,15 +103,16 @@ function processar(i){
   status.textContent = "⏳ Enviando...";
   status.style.color = "orange";
 
+  // 🔥 versão compatível com Apps Script (sem CORS)
   fetch(API_URL,{
     method:"POST",
-    headers:{
-      "Content-Type":"application/json"
-    },
-    body: JSON.stringify({usuario,data})
+    mode:"no-cors",
+    body: new URLSearchParams({
+      usuario: usuario,
+      data: data
+    })
   })
-  .then(r=>r.text())
-  .then(r=>{
+  .then(()=>{
     status.textContent = "✅ Feito";
     status.style.color = "green";
   })
@@ -94,6 +120,15 @@ function processar(i){
     status.textContent = "❌ Erro ao enviar";
     status.style.color = "red";
   });
+}
+
+// 🔥 excluir campo
+function excluir(i){
+  document.getElementById("txt"+i).value = "";
+  document.getElementById("status"+i).textContent = "";
+
+  dados[i] = "";
+  salvarLocal(dados);
 }
 </script>
 
