@@ -3,45 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Painel de Atualização</title>
+<title>Atualizar Clientes</title>
 
 <style>
 body{
   font-family:Arial;
-  background:#f4f4f4;
   padding:15px;
+  background:#f2f2f2;
 }
 
 .bloco{
-  background:#fff;
-  border-radius:10px;
-  padding:12px;
-  margin-bottom:15px;
-  box-shadow:0 2px 6px rgba(0,0,0,0.1);
+  background:white;
+  padding:10px;
+  margin-bottom:12px;
+  border-radius:8px;
 }
 
 textarea{
   width:100%;
-  height:90px;
-  border-radius:6px;
-  border:1px solid #ccc;
-  padding:6px;
+  height:80px;
 }
 
 button{
-  margin-top:8px;
-  padding:7px 10px;
-  border:none;
-  border-radius:6px;
-  cursor:pointer;
+  margin-top:5px;
+  padding:6px;
 }
-
-.enviar{ background:#4CAF50;color:white; }
-.excluir{ background:#e53935;color:white; }
 
 .status{
   display:block;
-  margin-top:6px;
+  margin-top:5px;
   font-weight:bold;
 }
 </style>
@@ -49,140 +39,62 @@ button{
 
 <body>
 
-<h2>Painel de Atualização</h2>
+<h3>Atualizar Clientes</h3>
+
 <div id="container"></div>
+
+<!-- 🔥 iframe invisível (segredo pra não sair da página) -->
+<iframe name="oculto" style="display:none;"></iframe>
 
 <script>
 const API_URL = "COLE_SUA_URL_AQUI";
 
-// 🔥 STORAGE
-let dados = JSON.parse(localStorage.getItem("clientes") || "[]");
-
-// 🔥 FILA DE ENVIO (resolve bug mobile)
-let fila = [];
-let enviando = false;
-
-// 🔥 CRIAR CAMPOS
-for(let i=0;i<10;i++){
+for(let i=0;i<5;i++){
   const div = document.createElement("div");
   div.className = "bloco";
 
   div.innerHTML = `
     <textarea id="txt${i}" placeholder="Cole a mensagem"></textarea>
-    <button class="enviar" onclick="processar(${i})">Enviar</button>
-    <button class="excluir" onclick="limpar(${i})">Excluir</button>
+    <form id="form${i}" method="POST" action="${API_URL}" target="oculto">
+      <input type="hidden" name="usuario" id="user${i}">
+      <input type="hidden" name="data" id="data${i}">
+      <button type="button" onclick="enviar(${i})">Enviar</button>
+    </form>
     <span id="status${i}" class="status"></span>
   `;
 
   document.getElementById("container").appendChild(div);
-
-  if(dados[i]){
-    document.getElementById("txt"+i).value = dados[i];
-  }
-
-  document.getElementById("txt"+i).addEventListener("input",()=>{
-    dados[i] = document.getElementById("txt"+i).value;
-    localStorage.setItem("clientes", JSON.stringify(dados));
-  });
 }
 
-// 🔥 PARSER MELHORADO (mobile/whatsapp)
-function extrair(txt){
-  const userMatch = txt.match(/usu[aá]rio\s*:\s*(.+)/i);
-  const dataMatch = txt.match(/(\d{2}\/\d{2}\/\d{4})/);
-
-  if(!userMatch || !dataMatch) return null;
-
-  return {
-    usuario: userMatch[1].trim(),
-    data: dataMatch[1]
-  };
-}
-
-// 🔥 ADICIONA NA FILA
-function processar(i){
+function enviar(i){
   const txt = document.getElementById("txt"+i).value;
   const status = document.getElementById("status"+i);
 
-  const dadosExtraidos = extrair(txt);
+  const userMatch = txt.match(/usu[aá]rio\s*:\s*(.+)/i);
+  const dataMatch = txt.match(/(\d{2}\/\d{2}\/\d{4})/);
 
-  if(!dadosExtraidos){
-    status.textContent = "❌ Não identificado";
+  if(!userMatch || !dataMatch){
+    status.textContent = "Erro ao identificar";
     status.style.color = "red";
     return;
   }
 
-  fila.push({
-    index:i,
-    ...dadosExtraidos,
-    tentativas:0
-  });
+  const usuario = userMatch[1].trim();
+  const data = dataMatch[1];
 
-  status.textContent = "📥 Na fila...";
-  status.style.color = "gray";
+  document.getElementById("user"+i).value = usuario;
+  document.getElementById("data"+i).value = data;
 
-  rodarFila();
-}
+  status.textContent = "Enviando...";
+  status.style.color = "orange";
 
-// 🔥 MOTOR DE ENVIO (anti-bug mobile)
-async function rodarFila(){
-  if(enviando) return;
+  document.getElementById("form"+i).submit();
 
-  enviando = true;
-
-  while(fila.length > 0){
-    const item = fila[0];
-    const status = document.getElementById("status"+item.index);
-
-    status.textContent = "⏳ Enviando...";
-    status.style.color = "orange";
-
-    try{
-      await fetch(API_URL,{
-        method:"POST",
-        mode:"no-cors",
-        body: new URLSearchParams({
-          usuario: item.usuario,
-          data: item.data
-        })
-      });
-
-      status.textContent = "✅ Enviado";
-      status.style.color = "green";
-
-      fila.shift();
-
-    }catch(e){
-      item.tentativas++;
-
-      if(item.tentativas >= 3){
-        status.textContent = "❌ Falhou";
-        status.style.color = "red";
-        fila.shift();
-      }else{
-        status.textContent = "🔁 Tentando novamente...";
-        await esperar(2000);
-      }
-    }
-
-    await esperar(800); // 🔥 evita bug em celular
-  }
-
-  enviando = false;
-}
-
-// 🔥 DELAY
-function esperar(ms){
-  return new Promise(r=>setTimeout(r,ms));
-}
-
-// 🔥 LIMPAR
-function limpar(i){
-  document.getElementById("txt"+i).value = "";
-  document.getElementById("status"+i).textContent = "";
-
-  dados[i] = "";
-  localStorage.setItem("clientes", JSON.stringify(dados));
+  // 🔥 feedback simples (funciona sempre)
+  setTimeout(()=>{
+    status.textContent = "Enviado ✔ (verifique planilha)";
+    status.style.color = "green";
+  },1000);
 }
 </script>
 
