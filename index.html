@@ -10,25 +10,21 @@ body{
   font-family:Arial;
   padding:20px;
 }
-
 .bloco{
   border:1px solid #ccc;
   padding:10px;
   margin-bottom:15px;
   border-radius:8px;
 }
-
 textarea{
   width:100%;
   height:100px;
 }
-
 button{
   margin-top:5px;
   padding:6px 10px;
   margin-right:5px;
 }
-
 .status{
   margin-left:10px;
   font-weight:bold;
@@ -42,24 +38,15 @@ button{
 
 <div id="container"></div>
 
-<!-- 🔥 iframe invisível -->
-<iframe id="hiddenFrame" name="hiddenFrame" style="display:none;"></iframe>
-
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbz9_bqSoEo-j5lpKcohMhtkQdDxJiehoFZlprPt3DqkOuxHGKaBttmVWyE6Ic3T6Sd-/exec";
 
-// LOCAL STORAGE
-function carregarLocal(){
-  return JSON.parse(localStorage.getItem("dadosClientes") || "[]");
-}
+let dados = JSON.parse(localStorage.getItem("dadosClientes") || "[]");
 
-function salvarLocal(dados){
+function salvar(){
   localStorage.setItem("dadosClientes", JSON.stringify(dados));
 }
 
-let dados = carregarLocal();
-
-// CRIA CAMPOS
 for(let i=0;i<10;i++){
   const div = document.createElement("div");
   div.className = "bloco";
@@ -79,11 +66,10 @@ for(let i=0;i<10;i++){
 
   document.getElementById("txt"+i).addEventListener("input",()=>{
     dados[i] = document.getElementById("txt"+i).value;
-    salvarLocal(dados);
+    salvar();
   });
 }
 
-// 🔥 ENVIO VIA IFRAME (SEM ABRIR ABA)
 function processar(i){
   const txt = document.getElementById("txt"+i).value;
   const status = document.getElementById("status"+i);
@@ -92,7 +78,7 @@ function processar(i){
   const dataMatch = txt.match(/(\d{2}\/\d{2}\/\d{4})/);
 
   if(!userMatch || !dataMatch){
-    status.textContent = "❌ Erro ao identificar";
+    status.textContent = "❌ Erro";
     status.style.color = "red";
     return;
   }
@@ -105,24 +91,28 @@ function processar(i){
 
   const url = API_URL + "?usuario=" + usuario + "&data=" + data;
 
-  const iframe = document.getElementById("hiddenFrame");
-
-  // 🔥 quando carregar, confirma envio
-  iframe.onload = function(){
-    status.textContent = "✅ Atualizado com sucesso";
-    status.style.color = "green";
-  };
-
-  iframe.src = url;
+  fetch(url)
+    .then(r=>r.text())
+    .then(r=>{
+      if(r === "OK"){
+        status.textContent = "✅ Atualizado";
+        status.style.color = "green";
+      }else{
+        status.textContent = "❌ " + r;
+        status.style.color = "red";
+      }
+    })
+    .catch(()=>{
+      status.textContent = "❌ Erro";
+      status.style.color = "red";
+    });
 }
 
-// EXCLUIR
 function excluir(i){
   document.getElementById("txt"+i).value = "";
   document.getElementById("status"+i).textContent = "";
-
   dados[i] = "";
-  salvarLocal(dados);
+  salvar();
 }
 </script>
 
